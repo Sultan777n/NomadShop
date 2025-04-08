@@ -1,14 +1,17 @@
-# Go binary files
+# Go build output
 /bin/
 /obj/
 
-# Go build artifacts
-*.exe
-*.out
-*.test
-
-# GoLand files
+# IDE configs
 .idea/
+*.iml
 
-# Vendor directory (if you're using vendoring)
+# Log files
+*.log
+
+# Dependencies
 /vendor/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
