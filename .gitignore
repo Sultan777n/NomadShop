@@ -1,0 +1,14 @@
+# Go binary files
+/bin/
+/obj/
+
+# Go build artifacts
+*.exe
+*.out
+*.test
+
+# GoLand files
+.idea/
+
+# Vendor directory (if you're using vendoring)
+/vendor/
