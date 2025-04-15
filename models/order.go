@@ -9,13 +9,12 @@ type Order struct {
 	ID         uint        `gorm:"primaryKey"`
 	UserID     uint        `gorm:"not null"`
 	OrderDate  time.Time   `gorm:"not null"`
-	Status     string      `gorm:"not null"` // "pending", "completed", "shipped", т.б.
+	Status     string      `gorm:"not null"` // "pending", "completed", "shipped"
 	Total      float64     `gorm:"not null"`
 	User       User        `gorm:"foreignKey:UserID;references:ID"`
 	OrderItems []OrderItem `gorm:"foreignKey:OrderID;references:ID"`
 }
 
-// Миграция функциясы
 func CreateOrder(db *gorm.DB, order *Order) (*Order, error) {
 	err := db.Create(&order).Error
 	return order, err

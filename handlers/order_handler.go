@@ -70,8 +70,8 @@ func (h *OrderHandler) GetOrdersByUser(c *gin.Context) {
 	var orders []models.Order
 	if err := h.DB.
 		Preload("User").
-		Preload("OrderItems.Product"). // Product ақпаратын жүктеу
-		Preload("OrderItems.Product.Category"). // Category ақпаратын жүктеу
+		Preload("OrderItems.Product").
+		Preload("OrderItems.Product.Category").
 		Where("user_id = ?", userID).Find(&orders).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error fetching orders"})
 		return

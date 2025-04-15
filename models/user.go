@@ -9,11 +9,15 @@ type User struct {
 	Username string `gorm:"not null;unique"`
 	Email    string `gorm:"not null;unique"`
 	Password string `gorm:"not null"`
+
+	Roles []Role `gorm:"many2many:user_roles;" json:"roles"`
 }
 
 func CreateUser(db *gorm.DB, user *User) (*User, error) {
-	err := db.Create(&user).Error
-	return user, err
+	if err := db.Create(user).Error; err != nil {
+		return nil, err
+	}
+	return user, nil
 }
 
 func GetUserByID(db *gorm.DB, id uint) (*User, error) {
