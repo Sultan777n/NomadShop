@@ -3,6 +3,9 @@ package handlers
 import (
 	"NomadShop/models"
 	"github.com/gin-gonic/gin"
+	_ "github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"gorm.io/gorm"
 	"net/http"
 	"strconv"
@@ -16,7 +19,6 @@ func NewRoleHandler(db *gorm.DB) *RoleHandler {
 	return &RoleHandler{DB: db}
 }
 
-
 func (h *RoleHandler) GetAllRoles(c *gin.Context) {
 	roles, err := models.GetRoles(h.DB)
 	if err != nil {
@@ -25,7 +27,6 @@ func (h *RoleHandler) GetAllRoles(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, roles)
 }
-
 
 func (h *RoleHandler) GetRoleByID(c *gin.Context) {
 	idStr := c.Param("id")
@@ -44,7 +45,6 @@ func (h *RoleHandler) GetRoleByID(c *gin.Context) {
 	c.JSON(http.StatusOK, role)
 }
 
-
 func (h *RoleHandler) CreateRole(c *gin.Context) {
 	var role models.Role
 	if err := c.ShouldBindJSON(&role); err != nil {
@@ -59,7 +59,6 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 
 	c.JSON(http.StatusOK, role)
 }
-
 
 func (h *RoleHandler) UpdateRole(c *gin.Context) {
 	idStr := c.Param("id")
@@ -83,7 +82,6 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 
 	c.JSON(http.StatusOK, updatedRole)
 }
-
 
 func (h *RoleHandler) DeleteRole(c *gin.Context) {
 	idStr := c.Param("id")

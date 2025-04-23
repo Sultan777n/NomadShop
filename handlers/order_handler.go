@@ -3,6 +3,9 @@ package handlers
 import (
 	"NomadShop/models"
 	"github.com/gin-gonic/gin"
+	_ "github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"gorm.io/gorm"
 	"net/http"
 	"strconv"
@@ -70,6 +73,7 @@ func (h *OrderHandler) GetOrdersByUser(c *gin.Context) {
 	var orders []models.Order
 	if err := h.DB.
 		Preload("User").
+		Preload("User.Roles").
 		Preload("OrderItems.Product").
 		Preload("OrderItems.Product.Category").
 		Where("user_id = ?", userID).Find(&orders).Error; err != nil {
@@ -98,6 +102,7 @@ func (h *OrderHandler) GetOrderByID(c *gin.Context) {
 	// Тапсырысты ID бойынша алу
 	if err := h.DB.
 		Preload("User").
+		Preload("User.Roles").
 		Preload("OrderItems.Product").
 		Preload("OrderItems.Product.Category").
 		First(&order, orderID).Error; err != nil {

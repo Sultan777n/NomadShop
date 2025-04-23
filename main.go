@@ -6,6 +6,9 @@ import (
 	"NomadShop/models"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"log"
@@ -21,24 +24,30 @@ func setupDatabase() *gorm.DB {
 		log.Fatal("Could not connect to the database:", err)
 	}
 
-	err = db.AutoMigrate(&models.User{}, &models.Role{}, &models.UserRole{}, &models.Product{}, &models.Category{},
-		&models.CartItem{}, &models.FavoriteItem{}, &models.Order{}, &models.OrderItem{})
-	if err != nil {
-		log.Fatal("Error during migration:", err)
-	}
-
-	if err := FixUserSequence(db); err != nil {
-		log.Println("Could not fix user ID sequence:", err)
-	}
-
-	if err := resetAutoIncrement(db, "products"); err != nil {
-		log.Println("Error resetting auto increment for products:", err)
-	}
-	if err := resetAutoIncrement(db, "cart_items"); err != nil {
-		log.Println("Error resetting auto increment for cart_items:", err)
+	if err := applyMigrations(dsn); err != nil {
+		log.Fatal("Error applying migrations:", err)
 	}
 
 	return db
+}
+
+func applyMigrations(dsn string) error {
+	url := "postgres://postgres:asd12345@localhost:5432/nomadshop?sslmode=disable"
+
+	m, err := migrate.New(
+		"file://db/migrations", // миграция файлдары орналасқан жол
+		url,                    // дұрыс URL схемасы
+	)
+	if err != nil {
+		return fmt.Errorf("could not initialize migrate: %w", err)
+	}
+
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("migration failed: %w", err)
+	}
+
+	log.Println("Migrations applied successfully")
+	return nil
 }
 
 func FixUserSequence(db *gorm.DB) error {
@@ -50,12 +59,6 @@ func FixUserSequence(db *gorm.DB) error {
 	return db.Exec(fmt.Sprintf("ALTER SEQUENCE users_id_seq RESTART WITH %d;", maxID+1)).Error
 }
 
-// Автоинкрементті 1-ден бастап орнату
-func resetAutoIncrement(db *gorm.DB, tableName string) error {
-	query := fmt.Sprintf("ALTER SEQUENCE %s_id_seq RESTART WITH 1;", tableName)
-	return db.Exec(query).Error
-}
-
 func main() {
 	db = setupDatabase()
 
@@ -64,9 +67,16 @@ func main() {
 	r := gin.Default()
 
 	handler := handlers.Handler{DB: db}
+
 	r.GET("/products_all", handler.GetProducts)
 	r.GET("/products/:id", handler.GetProductByID)
 	r.GET("/products", handler.GetProductsByCategory)
+	auth := r.Group("/products", middlewares.AuthMiddleware())
+	{
+		auth.POST("/create", middlewares.RoleAuthorization("Admin", "Seller"), handler.CreateProduct)
+		auth.PUT("/:id", middlewares.RoleAuthorization("Admin", "Seller"), handler.UpdateProduct)
+		auth.DELETE("/:id", middlewares.RoleAuthorization("Admin", "Seller"), handler.DeleteProduct)
+	}
 
 	categoryHandler := handlers.NewCategoryHandler(db)
 	categoryGroup := r.Group("/categories")
@@ -80,7 +90,7 @@ func main() {
 	r.POST("/users", middlewares.AuthMiddleware(), middlewares.RoleAuthorization("Admin", "User"), userHandler.CreateUser)
 	r.GET("/users", middlewares.AuthMiddleware(), middlewares.RoleAuthorization("Admin", "Support"), userHandler.GetUsers)
 	r.GET("/users/:id", middlewares.AuthMiddleware(), middlewares.RoleAuthorization("Admin", "Support", "Seller"), userHandler.GetUserByID)
-	r.PUT("/users/:id", middlewares.AuthMiddleware(), middlewares.AuthMiddleware(), middlewares.RoleAuthorization("Admin", "User"), userHandler.UpdateUser)
+	r.PUT("/users/:id", middlewares.AuthMiddleware(), middlewares.RoleAuthorization("Admin", "User"), userHandler.UpdateUser)
 	r.DELETE("/users/:id", middlewares.AuthMiddleware(), middlewares.RoleAuthorization("Admin", "User"), userHandler.DeleteUser)
 
 	roleHandler := handlers.NewRoleHandler(db)
@@ -117,8 +127,8 @@ func main() {
 	r.DELETE("/favorite-items/delete-by-user-product", middlewares.AuthMiddleware(), middlewares.RoleAuthorization("Admin", "User"), favoriteItemHandler.DeleteFavoriteItemByUserAndProduct)
 
 	orderHandler := handlers.NewOrderHandler(db)
-	r.POST("/orders", middlewares.AuthMiddleware(), middlewares.RoleAuthorization("User"), orderHandler.CreateOrder)
-	r.GET("/orders/", middlewares.AuthMiddleware(), middlewares.RoleAuthorization("User"), orderHandler.GetOrdersByUser)
+	r.POST("/orders", middlewares.AuthMiddleware(), middlewares.RoleAuthorization("Admin", "User", "Seller"), orderHandler.CreateOrder)
+	r.GET("/orders/", middlewares.AuthMiddleware(), middlewares.RoleAuthorization("Admin", "User"), orderHandler.GetOrdersByUser)
 	r.GET("/orders/by_id/", middlewares.AuthMiddleware(), middlewares.RoleAuthorization("Admin", "Support"), orderHandler.GetOrderByID)
 	r.GET("/orders/all", middlewares.AuthMiddleware(), middlewares.RoleAuthorization("Admin", "Support"), orderHandler.GetAllOrders)
 	r.PUT("/orders/:order_id", middlewares.AuthMiddleware(), middlewares.RoleAuthorization("Admin", "User"), orderHandler.UpdateOrder)
@@ -135,13 +145,6 @@ func main() {
 	r.POST("/register", middlewares.RegisterHandler(db))
 	r.POST("/login", middlewares.LoginHandler(db))
 	r.GET("/profile", middlewares.AuthMiddleware(), middlewares.ProfileHandler(db))
-
-	auth := r.Group("/products", middlewares.AuthMiddleware())
-	{
-		auth.POST("/create", middlewares.RoleAuthorization("Admin", "Seller"), handler.CreateProduct)
-		auth.PUT("/:id", middlewares.RoleAuthorization("Admin", "Seller"), handler.UpdateProduct)
-		auth.DELETE("/:id", middlewares.RoleAuthorization("Admin", "Seller"), handler.DeleteProduct)
-	}
 
 	err := r.Run(":8080")
 	if err != nil {

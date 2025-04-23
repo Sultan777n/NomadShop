@@ -2,6 +2,10 @@ package handlers
 
 import (
 	"NomadShop/models"
+	_ "github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"net/http"
@@ -16,7 +20,6 @@ func NewCategoryHandler(db *gorm.DB) *CategoryHandler {
 	return &CategoryHandler{DB: db}
 }
 
-
 func (h *CategoryHandler) GetAllCategories(c *gin.Context) {
 	categories, err := models.GetAllCategories(h.DB)
 	if err != nil {
@@ -25,7 +28,6 @@ func (h *CategoryHandler) GetAllCategories(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, categories)
 }
-
 
 func (h *CategoryHandler) CreateCategory(c *gin.Context) {
 	var category models.Category
@@ -41,7 +43,6 @@ func (h *CategoryHandler) CreateCategory(c *gin.Context) {
 
 	c.JSON(http.StatusOK, category)
 }
-
 
 func (h *CategoryHandler) GetCategoryByID(c *gin.Context) {
 	idStr := c.Param("id")

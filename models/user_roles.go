@@ -8,12 +8,11 @@ type UserRole struct {
 	ID     uint `gorm:"primaryKey"`
 	UserID uint `gorm:"not null;index"`
 	RoleID uint `gorm:"not null;index"`
-	User   User `gorm:"foreignKey:UserID;references:ID"`
-	Role   Role `gorm:"foreignKey:RoleID;references:ID"`
+	User   User `gorm:"foreignKey:UserID;references:ID;constraint:OnDelete:CASCADE"`
+	Role   Role `gorm:"foreignKey:RoleID;references:ID;constraint:OnDelete:CASCADE"`
 }
 
 func AddUserRole(db *gorm.DB, userRole *UserRole) (*UserRole, error) {
-	// Егер рөл мен пайдаланушы дұрыс болса, қосу операциясын орындау
 	err := db.Create(&userRole).Error
 	return userRole, err
 }
@@ -25,9 +24,7 @@ func GetUserRoles(db *gorm.DB, userID uint) ([]UserRole, error) {
 }
 
 func DeleteUserRole(db *gorm.DB, userID uint, roleID uint) error {
-	// Пайдаланушының рөлін өшіру операциясы
-	err := db.Where("user_id = ? AND role_id = ?", userID, roleID).Delete(&UserRole{}).Error
-	return err
+	return db.Where("user_id = ? AND role_id = ?", userID, roleID).Delete(&UserRole{}).Error
 }
 
 func GetRoleByUserAndRoleID(db *gorm.DB, userID, roleID uint) (*UserRole, error) {

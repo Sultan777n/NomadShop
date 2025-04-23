@@ -1,11 +1,14 @@
 package handlers
 
 import (
+	"NomadShop/models"
 	"net/http"
 	"strconv"
 
-	"NomadShop/models"
 	"github.com/gin-gonic/gin"
+	_ "github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"gorm.io/gorm"
 )
 
@@ -24,14 +27,14 @@ func (uh *UserHandler) CreateUser(c *gin.Context) {
 		return
 	}
 
-	// Қайталанатын email немесе username тексеру
+	// Email немесе username қайталанбасын
 	var existing models.User
 	if err := uh.DB.Where("email = ? OR username = ?", user.Email, user.Username).First(&existing).Error; err == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "User with this email or username already exists"})
 		return
 	}
 
-	// Пайдаланушыны базадан сақтау
+	// БД-ға сақтау (пароль BeforeCreate арқылы хэштеледі)
 	newUser, err := models.CreateUser(uh.DB, &user)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error creating user"})
@@ -150,10 +153,14 @@ func (uh *UserHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	// Пайдаланушыны жаңарту
 	user, err := models.UpdateUser(uh.DB, uint(id), &updatedUser)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error updating user"})
+		return
+	}
+
+	if err := uh.DB.Preload("Roles").First(user, id).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to load roles"})
 		return
 	}
 

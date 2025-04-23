@@ -38,7 +38,7 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Рөлдерді контексте сақтау
+		//контексте сақтау
 		c.Set("roles", claims.Roles)
 		c.Set("user_id", claims.UserID)
 		c.Next()
