@@ -6,7 +6,7 @@ import (
 
 type Role struct {
 	ID   uint   `gorm:"primaryKey"`
-	Name string `gorm:"not null"`
+	Name string `gorm:"not null;unique"`
 }
 
 func GetRoles(db *gorm.DB) ([]Role, error) {

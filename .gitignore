@@ -1,0 +1,17 @@
+# Go build output
+/bin/
+/obj/
+
+# IDE configs
+.idea/
+*.iml
+
+# Log files
+*.log
+
+# Dependencies
+/vendor/
+
+# OS-specific files
+.DS_Store
+Thumbs.db

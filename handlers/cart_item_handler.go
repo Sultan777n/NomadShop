@@ -1,13 +1,15 @@
 package handlers
 
 import (
+	"NomadShop/models"
 	"fmt"
+	"github.com/gin-gonic/gin"
+	_ "github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"gorm.io/gorm"
 	"net/http"
 	"strconv"
-
-	"NomadShop/models"
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 type CartItemHandler struct {
@@ -19,20 +21,44 @@ func NewCartItemHandler(db *gorm.DB) *CartItemHandler {
 }
 
 func (ch *CartItemHandler) GetAllCartItems(c *gin.Context) {
-	var cartItems []models.CartItem
+	limitStr := c.DefaultQuery("limit", "10")
+	pageStr := c.DefaultQuery("page", "1")
+	productName := c.Query("name") // өнім аты бойынша фильтр
 
-	err := ch.DB.Preload("Product").Preload("Product.Category").Find(&cartItems).Error
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 {
+		limit = 10
+	}
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page <= 0 {
+		page = 1
+	}
+	offset := (page - 1) * limit
+
+	query := ch.DB.Preload("Product").Preload("Product.Category")
+	if productName != "" {
+		query = query.Joins("JOIN products ON products.id = cart_items.product_id").
+			Where("products.name ILIKE ?", "%"+productName+"%")
+	}
+
+	var cartItems []models.CartItem
+	var total int64
+
+	query.Model(&models.CartItem{}).Count(&total)
+	err = query.Limit(limit).Offset(offset).Find(&cartItems).Error
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error fetching all cart items"})
 		return
 	}
 
-	for _, cartItem := range cartItems {
-		fmt.Printf("CartItem: %v\n", cartItem)
-	}
-
-	c.JSON(http.StatusOK, cartItems)
+	c.JSON(http.StatusOK, gin.H{
+		"data":       cartItems,
+		"page":       page,
+		"limit":      limit,
+		"total":      total,
+		"totalPages": (total + int64(limit) - 1) / int64(limit),
+	})
 }
 
 func (ch *CartItemHandler) GetCartItems(c *gin.Context) {
@@ -58,51 +84,96 @@ func (ch *CartItemHandler) GetCartItemsByUser(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "User ID is required"})
 		return
 	}
-
 	userID, err := strconv.Atoi(userIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid user ID"})
 		return
 	}
 
+	limitStr := c.DefaultQuery("limit", "10")
+	pageStr := c.DefaultQuery("page", "1")
+	productName := c.Query("name")
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 {
+		limit = 10
+	}
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page <= 0 {
+		page = 1
+	}
+	offset := (page - 1) * limit
+
+	query := ch.DB.Preload("Product").Preload("Product.Category").Where("user_id = ?", userID)
+	if productName != "" {
+		query = query.Joins("JOIN products ON products.id = cart_items.product_id").
+			Where("products.name ILIKE ?", "%"+productName+"%")
+	}
+
 	var cartItems []models.CartItem
-	// Продукция мен оның категориясын алдын ала жүктеу
-	err = ch.DB.Preload("Product").Preload("Product.Category").Where("user_id = ?", userID).Find(&cartItems).Error
+	var total int64
+
+	query.Model(&models.CartItem{}).Count(&total)
+	err = query.Limit(limit).Offset(offset).Find(&cartItems).Error
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error fetching cart items"})
 		return
 	}
 
-	c.JSON(http.StatusOK, cartItems)
+	c.JSON(http.StatusOK, gin.H{
+		"data":       cartItems,
+		"page":       page,
+		"limit":      limit,
+		"total":      total,
+		"totalPages": (total + int64(limit) - 1) / int64(limit),
+	})
 }
 
 func (ch *CartItemHandler) GetCartItemsByProduct(c *gin.Context) {
-	// product_id сұрау параметрін алу
-	productIDStr := c.DefaultQuery("product_id", "") // product_id query параметрі
+	productIDStr := c.DefaultQuery("product_id", "")
 	if productIDStr == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Product ID is required"})
 		return
 	}
-
-	// product_id санға түрлендіріледі
 	productID, err := strconv.Atoi(productIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid product ID"})
 		return
 	}
 
-	// Preload арқылы өнім мен оның категориясын жүктейміз
+	limitStr := c.DefaultQuery("limit", "10")
+	pageStr := c.DefaultQuery("page", "1")
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 {
+		limit = 10
+	}
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page <= 0 {
+		page = 1
+	}
+	offset := (page - 1) * limit
+
+	query := ch.DB.Preload("Product").Preload("Product.Category").Where("product_id = ?", productID)
+
 	var cartItems []models.CartItem
-	err = ch.DB.Preload("Product").Preload("Product.Category").Where("product_id = ?", productID).Find(&cartItems).Error
+	var total int64
+
+	query.Model(&models.CartItem{}).Count(&total)
+	err = query.Limit(limit).Offset(offset).Find(&cartItems).Error
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error fetching cart items"})
 		return
 	}
 
-	// Себеттегі өнімдермен бірге өнімнің толық мәліметтері қайтарылады
-	c.JSON(http.StatusOK, cartItems)
+	c.JSON(http.StatusOK, gin.H{
+		"data":       cartItems,
+		"page":       page,
+		"limit":      limit,
+		"total":      total,
+		"totalPages": (total + int64(limit) - 1) / int64(limit),
+	})
 }
-
 func (ch *CartItemHandler) CreateCartItem(c *gin.Context) {
 	var cartItem models.CartItem
 	if err := c.ShouldBindJSON(&cartItem); err != nil {
